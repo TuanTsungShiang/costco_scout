@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+<!--
+  UI LAYOUT ONLY — V5
+  情境：台灣 Costco（賣場／線上）vs 蝦皮・momo・PChome・Yahoo・露天
+  模式：買方比價（Phase 1，本檔完成）／賣方套利（Phase 2，版面已預留）
+
+  所有商品、價格、費率、判定皆為「示範資料」，僅供版面與字級評估。
+  欄位定義、計算規則、狀態機一律以 COSTCO_ARBITRAGE_MVP_SPEC 為準。
+  非 Costco Wholesale 官方作品；各通路名稱與色彩僅作為識別用途。
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Costco 台灣 vs 電商通路比價 — UI 版型範本 V5">
+<meta name="color-scheme" content="light dark">
+<title>比價試算 — UI 版型範本 V5</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   1. TOKENS — 倉儲賣場語彙
+   平塗、硬邊、方正。不使用 gradient / blur / soft-shadow。
+   ============================================================ */
+:root{
+  --red:#e31837;
+  --red-ink:#a80f27;
+  --blue:#005daa;
+  --blue-ink:#00447c;
+  --yellow:#ffd200;
+  --green:#00703c;
+
+  --floor:#e4e2dd;
+  --floor-2:#d6d3cc;
+  --chrome-fg:#0a0a0a;
+  --chrome-fg-muted:#5f5b54;
+
+  --panel:#ffffff;
+  --panel-fg:#0a0a0a;
+  --panel-muted:#6b665e;
+  --rule:#0a0a0a;
+  --rule-soft:#c9c5bd;
+
+  /* 貨架牌永遠白紙黑字 */
+  --paper:#ffffff;
+  --paper-ink:#0a0a0a;
+  --paper-sub:#57534c;
+
+  /* 通路識別色 */
+  --ch-shopee:#ee4d2d;
+  --ch-momo:#e60044;
+  --ch-pchome:#d0021b;
+  --ch-yahoo:#6001d2;
+  --ch-ruten:#ff6600;
+
+  --f-display:"Archivo","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-body:"Inter","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+
+  --r:2px;
+  --gap:14px;
+  --tap:44px;
+}
+
+html[data-theme="dark"]{
+  --floor:#141416;
+  --floor-2:#1d1d20;
+  --chrome-fg:#f2f0ec;
+  --chrome-fg-muted:#9c968c;
+  --panel:#1e1e22;
+  --panel-fg:#f2f0ec;
+  --panel-muted:#9c968c;
+  --rule:#4a4a52;
+  --rule-soft:#33333a;
+}
+
+/* ============================================================
+   2. BASE
+   ============================================================ */
+*,*::before,*::after{box-sizing:border-box}
+
+body{
+  margin:0;min-height:100dvh;
+  font-family:var(--f-body);font-size:15px;line-height:1.55;
+  color:var(--chrome-fg);background:var(--floor);
+  -webkit-font-smoothing:antialiased;
+}
+
+h1,h2,h3,h4{font-family:var(--f-display);margin:0;letter-spacing:-.015em;line-height:1.12}
+p{margin:0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border-radius:var(--r)}
+
+.num{font-variant-numeric:tabular-nums;text-align:right;font-feature-settings:"tnum" 1}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+:where(a,button,input,select,[tabindex]):focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+html[data-theme="dark"] :where(a,button,input,select,[tabindex]):focus-visible{outline-color:var(--yellow)}
+
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+
+/* ============================================================
+   3. 招牌列
+   ============================================================ */
+.signage{position:sticky;top:0;z-index:40;background:var(--blue);color:#fff;border-bottom:4px solid var(--red)}
+.signage-top{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:14px;padding:10px 20px}
+
+.mark{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff;flex:0 0 auto}
+.mark-block{
+  width:40px;height:40px;display:grid;place-items:center;background:var(--red);
+  font-family:var(--f-display);font-weight:900;font-size:1.05rem;border-bottom:5px solid #fff;
+}
+.mark-copy strong{display:block;font-family:var(--f-display);font-weight:900;font-size:1rem;line-height:1.1}
+.mark-copy span{display:block;font-size:.65rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;opacity:.72}
+
+.signage-meta{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+
+/* 買方／賣方模式切換 */
+.mode{display:inline-flex;border:1px solid rgba(255,255,255,.32);border-radius:var(--r);overflow:hidden;height:36px}
+.mode button{
+  border:0;background:transparent;color:rgba(255,255,255,.72);
+  padding:0 13px;font-family:var(--f-display);font-weight:800;font-size:.76rem;
+  letter-spacing:.04em;border-radius:0;
+}
+.mode button[aria-pressed="true"]{background:#fff;color:var(--blue)}
+.mode button[disabled]{opacity:.45;cursor:not-allowed}
+
+.chip{
+  display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 11px;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:var(--r);
+  font-size:.8rem;font-weight:600;white-space:nowrap;
+}
+.chip .mono{font-size:.78rem}
+
+.sq{
+  width:36px;height:36px;flex:0 0 auto;display:grid;place-items:center;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);color:#fff;
+}
+.sq:hover{background:rgba(255,255,255,.22)}
+
+.btn-add{
+  height:36px;padding:0 14px;display:inline-flex;align-items:center;gap:7px;
+  background:var(--red);color:#fff;border:0;
+  font-family:var(--f-display);font-weight:800;font-size:.82rem;
+}
+.btn-add:hover{background:var(--red-ink)}
+
+.aisles{max-width:1440px;margin:0 auto;display:flex;padding:0 20px;overflow-x:auto;scrollbar-width:none}
+.aisles::-webkit-scrollbar{display:none}
+.aisle{
+  border:0;background:transparent;color:rgba(255,255,255,.7);
+  font-family:var(--f-display);font-weight:700;font-size:.85rem;
+  padding:11px 16px;display:inline-flex;align-items:center;gap:8px;
+  border-bottom:4px solid transparent;margin-bottom:-4px;white-space:nowrap;border-radius:0;
+}
+.aisle:hover{color:#fff}
+.aisle[aria-current="page"]{color:#fff;border-bottom-color:#fff}
+
+/* ============================================================
+   4. 版面骨架
+   ============================================================ */
+.wrap{max-width:1440px;margin:0 auto;padding:22px 20px 40px}
+.page{display:none}
+.page.on{display:block}
+
+@media (prefers-reduced-motion:no-preference){
+  .page.on{animation:rise .18s ease-out}
+  @keyframes rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+}
+
+.head{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  margin:26px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--rule);
+}
+.head:first-child{margin-top:0}
+.head h3{font-size:1.15rem;font-weight:800;text-transform:uppercase}
+.head p{color:var(--chrome-fg-muted);font-size:.85rem;margin-top:3px}
+
+.panel{background:var(--panel);color:var(--panel-fg);border:2px solid var(--rule);border-radius:var(--r)}
+.panel-head{padding:12px 16px;border-bottom:2px solid var(--rule);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.panel-head h4{font-size:.92rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.panel-head span{color:var(--panel-muted);font-size:.78rem}
+.panel-body{padding:16px}
+
+/* ============================================================
+   5. ★ 信號元素 A：Costco 貨架價格牌
+   ============================================================ */
+.tag{
+  position:relative;background:var(--paper);color:var(--paper-ink);
+  border:2px solid var(--paper-ink);border-radius:var(--r);
+  padding:14px;display:flex;flex-direction:column;overflow:hidden;
+}
+.tag-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  border-bottom:1px solid var(--paper-ink);padding-bottom:7px;
+}
+.tag-item{font-family:var(--f-mono);font-size:.74rem;font-weight:600;letter-spacing:.05em}
+
+/* 價格來源徽章 — 賣場／線上 是兩筆不同觀測，絕不可混用 */
+.src{
+  font-family:var(--f-display);font-weight:900;font-size:.66rem;
+  letter-spacing:.14em;text-transform:uppercase;padding:3px 8px;
+}
+.src.store{background:var(--blue);color:#fff}
+.src.online{background:transparent;color:var(--blue);box-shadow:inset 0 0 0 2px var(--blue)}
+
+.tag-star{position:absolute;top:9px;right:13px;font-size:1.1rem;line-height:1;color:var(--paper-ink)}
+
+.tag-name{
+  font-family:var(--f-display);font-weight:800;font-size:.98rem;line-height:1.25;
+  text-transform:uppercase;margin-top:10px;min-height:2.5em;
+}
+.tag-sub{font-size:.76rem;color:var(--paper-sub);margin-top:3px}
+
+.tag-price{
+  margin-top:auto;padding-top:10px;
+  display:flex;align-items:flex-start;justify-content:flex-end;
+  font-family:var(--f-display);font-weight:900;font-variant-numeric:tabular-nums;
+  letter-spacing:-.045em;line-height:.86;
+}
+.tag-price .cur{font-size:1.1rem;font-weight:800;margin-top:.28em;margin-right:.06em}
+.tag-price .int{font-size:clamp(2.6rem,6.5vw,3.6rem)}
+.tag-price .cent{font-size:1.2rem;margin-top:.22em;margin-left:.08em}
+
+.tag-unit{
+  display:flex;justify-content:space-between;gap:10px;
+  font-family:var(--f-mono);font-size:.74rem;
+  border-top:1px solid var(--paper-ink);margin-top:9px;padding-top:7px;
+}
+.tag-foot{font-family:var(--f-mono);font-size:.68rem;color:var(--paper-sub);margin-top:5px}
+
+.tag-sale{
+  margin:9px -14px 0;padding:5px 14px;background:var(--yellow);
+  font-family:var(--f-display);font-weight:900;font-size:.8rem;
+  letter-spacing:.04em;text-transform:uppercase;
+  display:flex;justify-content:space-between;gap:8px;
+  border-top:1px solid var(--paper-ink);border-bottom:1px solid var(--paper-ink);
+}
+
+/* 出口檢查員的螢光筆 = 已人工核對 */
+.checked::after{
+  content:"";position:absolute;left:-6%;right:-6%;bottom:19%;height:30px;
+  background:var(--yellow);opacity:.62;mix-blend-mode:multiply;
+  transform:rotate(-3.2deg);pointer-events:none;
+}
+
+/* ============================================================
+   6. ★ 信號元素 B：電商列表列
+   刻意與貨架牌相反 —— 柔邊、有縮圖、有賣家與評價。
+   ============================================================ */
+.ch-list{display:grid;gap:9px}
+
+.ch-row{
+  position:relative;
+  display:grid;
+  grid-template-columns:46px minmax(0,1fr) auto;
+  gap:12px;align-items:center;
+  padding:11px 13px 11px 15px;
+  background:var(--panel);
+  border:1px solid var(--rule-soft);
+  border-left:5px solid var(--ch,var(--rule-soft));
+  border-radius:var(--r);
+}
+.ch-row.best{border-color:var(--rule);border-left-color:var(--ch,var(--rule));box-shadow:inset 0 0 0 1px var(--rule)}
+
+.ch-thumb{
+  width:46px;height:46px;display:grid;place-items:center;
+  background:var(--floor-2);border:1px solid var(--rule-soft);
+  font-family:var(--f-display);font-weight:900;font-size:.62rem;
+  letter-spacing:.02em;color:var(--panel-muted);text-align:center;line-height:1.1;
+}
+html[data-theme="dark"] .ch-thumb{background:#2a2a30}
+
+.ch-name{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ch-name strong{font-family:var(--f-display);font-weight:800;font-size:.88rem}
+.ch-badge{
+  font-size:.64rem;font-weight:700;letter-spacing:.04em;
+  padding:2px 6px;border:1px solid var(--rule-soft);color:var(--panel-muted);
+}
+.ch-badge.official{color:var(--ch,var(--blue));border-color:currentColor}
+
+.ch-meta{
+  font-family:var(--f-mono);font-size:.71rem;color:var(--panel-muted);
+  margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;
+}
+
+.ch-money{text-align:right;white-space:nowrap}
+.ch-money b{
+  display:block;font-family:var(--f-display);font-weight:900;font-size:1.28rem;
+  font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1.1;
+}
+.ch-money small{
+  display:block;font-family:var(--f-mono);font-size:.68rem;
+  color:var(--panel-muted);margin-top:2px;
+}
+
+.ch-rank{
+  position:absolute;top:-1px;right:-1px;
+  background:var(--green);color:#fff;
+  font-family:var(--f-display);font-weight:900;font-size:.6rem;
+  letter-spacing:.12em;padding:2px 7px;
+}
+
+/* ============================================================
+   7. 判定與狀態
+   ============================================================ */
+.verdict{
+  display:inline-flex;flex-direction:column;align-items:center;gap:2px;
+  padding:9px 15px;border:3px solid currentColor;border-radius:var(--r);
+  font-family:var(--f-display);font-weight:900;transform:rotate(-2deg);
+}
+.verdict small{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;opacity:.85}
+.verdict strong{font-size:1.4rem;line-height:1}
+.verdict.costco{color:var(--blue)}
+.verdict.online{color:var(--green)}
+.verdict.hold{color:var(--chrome-fg-muted)}
+
+.pill{
+  display:inline-flex;align-items:center;height:24px;padding:0 9px;
+  border:1.5px solid currentColor;border-radius:var(--r);
+  font-family:var(--f-display);font-weight:800;font-size:.7rem;
+  letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;
+}
+.pill.costco{color:var(--blue)}
+.pill.online{color:var(--green)}
+.pill.hold{color:var(--panel-muted)}
+.pill.stale{color:var(--panel-muted);opacity:.7}
+html[data-theme="dark"] .pill.costco{color:#6cb6ff}
+html[data-theme="dark"] .pill.online{color:#4ade80}
+
+/* ============================================================
+   8. 首頁
+   ============================================================ */
+.faceoff{display:grid;grid-template-columns:minmax(260px,.72fr) minmax(0,1.28fr);gap:var(--gap);align-items:start}
+
+.verdict-bar{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  margin-top:12px;padding:12px 14px;
+  background:var(--panel);border:2px solid var(--rule);
+}
+.verdict-bar .save{
+  font-family:var(--f-display);font-weight:900;font-size:1.5rem;
+  font-variant-numeric:tabular-nums;letter-spacing:-.035em;color:var(--blue);
+}
+html[data-theme="dark"] .verdict-bar .save{color:#6cb6ff}
+.verdict-bar p{font-size:.79rem;color:var(--panel-muted);line-height:1.45}
+
+.strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:2px solid var(--rule);background:var(--panel);color:var(--panel-fg)}
+.strip > div{padding:14px 16px;border-left:1px solid var(--rule-soft)}
+.strip > div:first-child{border-left:0}
+.strip small{display:block;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--panel-muted)}
+.strip strong{display:block;margin-top:5px;font-family:var(--f-display);font-weight:900;font-size:1.7rem;font-variant-numeric:tabular-nums;letter-spacing:-.035em}
+.strip em{display:block;font-style:normal;font-size:.75rem;color:var(--panel-muted);margin-top:2px}
+.strip .mk-blue strong{color:var(--blue)}
+.strip .mk-green strong{color:var(--green)}
+html[data-theme="dark"] .strip .mk-blue strong{color:#6cb6ff}
+html[data-theme="dark"] .strip .mk-green strong{color:#4ade80}
+
+.cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,.65fr);gap:var(--gap);align-items:start}
+
+/* ============================================================
+   9. 資料表
+   ============================================================ */
+.tbl{width:100%;border-collapse:collapse;font-size:.86rem}
+.tbl th{
+  text-align:left;padding:9px 12px;
+  font-family:var(--f-display);font-weight:800;font-size:.7rem;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--panel-muted);
+  border-bottom:2px solid var(--rule);white-space:nowrap;
+}
+.tbl th.num,.tbl td.num{text-align:right}
+.tbl td{padding:11px 12px;border-bottom:1px solid var(--rule-soft);vertical-align:middle}
+.tbl tbody tr:last-child td{border-bottom:0}
+.tbl tbody tr:hover{background:var(--floor-2)}
+html[data-theme="dark"] .tbl tbody tr:hover{background:#26262b}
+.tbl .name{font-weight:600}
+.tbl .name small{display:block;font-family:var(--f-mono);font-size:.7rem;color:var(--panel-muted);font-weight:400}
+.tbl .win{color:var(--blue);font-weight:700}
+.tbl .lose{color:var(--green);font-weight:700}
+html[data-theme="dark"] .tbl .win{color:#6cb6ff}
+html[data-theme="dark"] .tbl .lose{color:#4ade80}
+
+.bar-row{margin-bottom:14px}
+.bar-row:last-child{margin-bottom:0}
+.bar-top{display:flex;justify-content:space-between;gap:12px;font-size:.8rem;margin-bottom:5px}
+.bar-top b{font-variant-numeric:tabular-nums}
+.bar{height:12px;background:var(--floor-2);border:1px solid var(--rule)}
+html[data-theme="dark"] .bar{background:#2a2a30}
+.bar > i{display:block;height:100%;background:var(--blue)}
+.bar > i.warn{background:var(--yellow)}
+.bar > i.ok{background:var(--green)}
+
+.note{margin-top:16px;padding:11px 13px;border-left:5px solid var(--blue);background:var(--floor-2);font-size:.82rem;line-height:1.6}
+html[data-theme="dark"] .note{background:#26262b}
+
+/* ============================================================
+   10. 價格輸入
+   ============================================================ */
+.seg{display:flex;flex-wrap:wrap;gap:0;border:2px solid var(--rule);background:var(--panel);margin-bottom:var(--gap)}
+.seg button{
+  flex:1 1 180px;border:0;background:transparent;color:var(--panel-muted);
+  padding:13px 14px;display:flex;align-items:center;justify-content:center;gap:8px;
+  font-family:var(--f-display);font-weight:800;font-size:.84rem;
+  border-right:1px solid var(--rule-soft);border-radius:0;
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--blue);color:#fff}
+
+.capture{border:3px dashed var(--rule);background:var(--panel);color:var(--panel-fg);padding:40px 22px;text-align:center}
+.capture-icon{width:72px;height:72px;margin:0 auto 16px;display:grid;place-items:center;background:var(--red);color:#fff}
+.capture h3{font-size:1.3rem;font-weight:900;text-transform:uppercase}
+.capture p{max-width:540px;margin:9px auto 18px;color:var(--panel-muted);font-size:.87rem}
+
+.url-row{display:flex;gap:9px;max-width:640px;margin:0 auto;flex-wrap:wrap}
+.url-row input{flex:1 1 260px;min-height:var(--tap);padding:9px 11px;border:2px solid var(--rule);border-radius:var(--r);background:var(--panel);color:var(--panel-fg);font-family:var(--f-mono);font-size:.84rem}
+
+.btn{
+  height:var(--tap);padding:0 20px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:2px solid var(--rule);background:var(--panel);color:var(--panel-fg);
+  font-family:var(--f-display);font-weight:800;font-size:.85rem;letter-spacing:.03em;
+}
+.btn:hover{background:var(--floor-2)}
+html[data-theme="dark"] .btn:hover{background:#2a2a30}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+.btn.primary:hover{background:var(--red-ink);border-color:var(--red-ink)}
+.btn.blue{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.blue:hover{background:var(--blue-ink);border-color:var(--blue-ink)}
+
+.result{display:none;max-width:780px;margin:22px auto 0;text-align:left}
+.result.on{display:block}
+
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.f{display:grid;gap:5px}
+.f.wide{grid-column:1/-1}
+.f label{font-family:var(--f-display);font-weight:800;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--panel-muted)}
+.f input,.f select{
+  width:100%;min-height:var(--tap);padding:9px 11px;
+  border:2px solid var(--rule);border-radius:var(--r);
+  background:var(--panel);color:var(--panel-fg);
+}
+.f input.mono{font-family:var(--f-mono)}
+.f-hint{font-family:var(--f-mono);font-size:.7rem;color:var(--panel-muted)}
+.actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:16px}
+
+/* ============================================================
+   11. 分析：實付價收據
+   ============================================================ */
+.analysis{display:grid;grid-template-columns:minmax(320px,.85fr) minmax(0,1.15fr);gap:var(--gap);align-items:start}
+
+.receipt{
+  position:relative;background:var(--paper);color:var(--paper-ink);
+  border:2px solid var(--paper-ink);padding:18px;
+  font-family:var(--f-mono);font-size:.82rem;
+}
+.receipt-top{text-align:center;border-bottom:1px dashed var(--paper-ink);padding-bottom:11px}
+.receipt-top strong{display:block;font-family:var(--f-display);font-weight:900;font-size:1rem;letter-spacing:.1em;text-transform:uppercase}
+.receipt-top span{font-size:.7rem;color:var(--paper-sub)}
+
+.r-sec{
+  font-family:var(--f-display);font-weight:900;font-size:.68rem;
+  letter-spacing:.16em;text-transform:uppercase;
+  margin-top:14px;padding-bottom:4px;border-bottom:1px solid var(--paper-ink);
+}
+.r-row{display:flex;justify-content:space-between;gap:14px;padding:5px 0}
+.r-row b{font-weight:500;font-variant-numeric:tabular-nums}
+.r-row.sub{border-top:1px dashed var(--paper-ink);margin-top:5px;padding-top:8px;font-weight:600}
+.r-row.sub b{font-weight:600}
+.r-row.total{
+  border-top:3px double var(--paper-ink);margin-top:9px;padding-top:10px;
+  font-family:var(--f-display);font-weight:900;font-size:1.02rem;text-transform:uppercase;
+}
+.r-row.total b{font-size:1.45rem;letter-spacing:-.03em}
+.r-row .neg{color:var(--red)}
+.r-row .pos{color:var(--green)}
+
+/* Phase 2 預留區 */
+.r-future{opacity:.42;margin-top:6px}
+.r-future .r-sec{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.r-future .r-sec em{font-style:normal;font-size:.62rem;letter-spacing:.08em}
+
+.receipt-foot{margin-top:14px;padding-top:10px;border-top:1px dashed var(--paper-ink);font-size:.68rem;color:var(--paper-sub);text-align:center}
+
+/* ============================================================
+   12. 追蹤
+   ============================================================ */
+.track{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--gap)}
+.track-card{padding:16px}
+.track-card h4{font-size:1rem;font-weight:800;margin-top:10px}
+.track-card p{color:var(--panel-muted);font-size:.8rem;margin-top:5px;line-height:1.55}
+.track-stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;margin-top:14px;background:var(--rule-soft);border:1px solid var(--rule-soft)}
+.track-stats div{background:var(--panel);padding:9px 10px}
+.track-stats small{display:block;font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--panel-muted)}
+.track-stats b{display:block;margin-top:2px;font-family:var(--f-display);font-weight:800;font-size:1.05rem;font-variant-numeric:tabular-nums}
+
+/* ============================================================
+   13. 響應式
+   ============================================================ */
+.dock{display:none}
+
+@media (max-width:1100px){
+  .faceoff{grid-template-columns:1fr}
+  .strip{grid-template-columns:1fr 1fr}
+  .strip > div:nth-child(3){border-left:0}
+  .strip > div:nth-child(n+3){border-top:1px solid var(--rule-soft)}
+  .cols,.analysis{grid-template-columns:1fr}
+  .track{grid-template-columns:1fr 1fr}
+}
+
+@media (max-width:760px){
+  .wrap{padding:18px 14px 96px}
+  .signage-top{padding:9px 14px;gap:10px}
+  .aisles{display:none}
+  .chip.hide-sm,.btn-add span{display:none}
+  .btn-add{padding:0 11px}
+  .track{grid-template-columns:1fr}
+  .fields{grid-template-columns:1fr}
+  .f.wide{grid-column:auto}
+  .tbl .col-sm{display:none}
+  .ch-row{grid-template-columns:38px minmax(0,1fr) auto;padding-left:12px}
+  .ch-thumb{width:38px;height:38px;font-size:.55rem}
+
+  .dock{
+    display:grid;grid-template-columns:repeat(4,1fr);
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:var(--panel);border-top:2px solid var(--rule);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .dock button{
+    border:0;background:transparent;color:var(--panel-muted);
+    display:grid;place-items:center;gap:2px;padding:9px 4px;
+    font-family:var(--f-display);font-weight:700;font-size:.66rem;border-radius:0;
+  }
+  .dock button[aria-current="page"]{color:var(--red);box-shadow:inset 0 3px 0 var(--red)}
+}
+
+@media (max-width:460px){
+  .strip{grid-template-columns:1fr}
+  .strip > div{border-left:0;border-top:1px solid var(--rule-soft)}
+  .strip > div:first-child{border-top:0}
+  .signage-meta .chip{display:none}
+  .ch-meta{display:none}
+}
+
+@media print{
+  .signage,.dock,.actions{display:none}
+  body{background:#fff}
+  .page{display:block !important}
+}
+</style>
+</head>
+<body>
+
+<svg class="sr" aria-hidden="true"><defs>
+  <symbol id="i-grid" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" d="M3 4h11l7 8-7 8H3z"/><circle cx="7.5" cy="12" r="1.6" fill="currentColor"/></symbol>
+  <symbol id="i-scale" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 3v18M4 7h16M7 7l-3 7h6zM17 7l-3 7h6z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M4 12.5 9.5 18 20 6"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2.2"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 1 0-6.4-6.4L11.3 6.3M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 1 0 6.4 6.4l1.7-1.7"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" d="M2 4h3l2.6 11h10.2L21 7H6"/><circle cx="9" cy="19.5" r="1.6" fill="currentColor"/><circle cx="18" cy="19.5" r="1.6" fill="currentColor"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2.2"/><path stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
+</defs></svg>
+
+<header class="signage">
+  <div class="signage-top">
+    <a class="mark" href="#top">
+      <span class="mark-block">CA</span>
+      <span class="mark-copy">
+        <strong>比價試算</strong>
+        <span>Costco vs 電商</span>
+      </span>
+    </a>
+
+    <div class="signage-meta">
+      <div class="mode" role="group" aria-label="試算模式">
+        <button type="button" aria-pressed="true">買方比價</button>
+        <button type="button" aria-pressed="false" disabled title="Phase 2">賣方套利</button>
+      </div>
+      <span class="chip hide-sm mono">價格更新 07/22 09:14</span>
+      <button class="sq" id="theme" aria-label="切換明暗模式">
+        <svg width="18" height="18" aria-hidden="true"><use href="#i-moon" id="themeIcon"></use></svg>
+      </button>
+      <button class="btn-add" data-go="input">
+        <svg width="15" height="15" aria-hidden="true"><use href="#i-plus"></use></svg>
+        <span>新增價格</span>
+      </button>
+    </div>
+  </div>
+
+  <nav class="aisles" aria-label="主要功能">
+    <button class="aisle" data-page="dash" aria-current="page"><svg width="15" height="15" aria-hidden="true"><use href="#i-grid"></use></svg>總覽</button>
+    <button class="aisle" data-page="input"><svg width="15" height="15" aria-hidden="true"><use href="#i-tag"></use></svg>價格輸入</button>
+    <button class="aisle" data-page="analysis"><svg width="15" height="15" aria-hidden="true"><use href="#i-scale"></use></svg>分析詳情</button>
+    <button class="aisle" data-page="track"><svg width="15" height="15" aria-hidden="true"><use href="#i-check"></use></svg>追蹤紀錄</button>
+  </nav>
+</header>
+
+<main class="wrap" id="top">
+
+<!-- ══════════════ 總覽 ══════════════ -->
+<section class="page on" id="page-dash">
+
+  <div class="head">
+    <div>
+      <h3>今日判定</h3>
+      <p>示範資料 · 單位價已正規化為「每包」。黃線代表已人工核對。</p>
+    </div>
+    <span class="pill costco">賣場最便宜</span>
+  </div>
+
+  <div class="faceoff">
+    <div>
+      <article class="tag checked">
+        <div class="tag-head">
+          <span class="tag-item">ITEM 9000027</span>
+          <span class="src store">賣場</span>
+        </div>
+        <h4 class="tag-name">科克蘭 三層抽取衛生紙 30 入</h4>
+        <p class="tag-sub">30 包 × 110 抽 · 常溫</p>
+        <div class="tag-price"><span class="cur">$</span><span class="int">459</span><span class="cent">00</span></div>
+        <div class="tag-unit"><span>單位價</span><span>$15.30 / 包</span></div>
+        <p class="tag-foot">內湖店 · 拍攝 2026-07-20</p>
+      </article>
+
+      <div class="verdict-bar">
+        <span class="verdict costco"><small>建議</small><strong>賣場買</strong></span>
+        <div>
+          <p class="save">省 NT$74</p>
+          <p>比最便宜的電商（蝦皮 $533）低 13.9%。<br>Costco 線上同品項 $519，仍比賣場貴 $60。</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="ch-list">
+
+        <div class="ch-row best" style="--ch:var(--blue)">
+          <span class="ch-rank">最低</span>
+          <span class="ch-thumb">COSTCO<br>賣場</span>
+          <div>
+            <div class="ch-name">
+              <strong>Costco 內湖店</strong>
+              <span class="ch-badge official">實體賣場</span>
+            </div>
+            <p class="ch-meta"><span>標價 459</span><span>無運費</span><span>需會員</span></p>
+          </div>
+          <div class="ch-money"><b>$459</b><small>$15.30 / 包</small></div>
+        </div>
+
+        <div class="ch-row" style="--ch:var(--blue)">
+          <span class="ch-thumb">COSTCO<br>線上</span>
+          <div>
+            <div class="ch-name">
+              <strong>Costco 線上購物</strong>
+              <span class="ch-badge official">官方</span>
+            </div>
+            <p class="ch-meta"><span>標價 519</span><span>免運</span><span>需會員</span></p>
+          </div>
+          <div class="ch-money"><b>$519</b><small>$17.30 / 包</small></div>
+        </div>
+
+        <div class="ch-row" style="--ch:var(--ch-shopee)">
+          <span class="ch-thumb">蝦皮</span>
+          <div>
+            <div class="ch-name">
+              <strong>蝦皮購物</strong>
+              <span class="ch-badge">代購賣家 ★4.9</span>
+            </div>
+            <p class="ch-meta"><span>標價 549</span><span>免運</span><span>回饋 −16</span></p>
+          </div>
+          <div class="ch-money"><b>$533</b><small>$17.77 / 包</small></div>
+        </div>
+
+        <div class="ch-row" style="--ch:var(--ch-pchome)">
+          <span class="ch-thumb">PCHOME</span>
+          <div>
+            <div class="ch-name">
+              <strong>PChome 24h</strong>
+              <span class="ch-badge">自營</span>
+            </div>
+            <p class="ch-meta"><span>標價 575</span><span>免運</span></p>
+          </div>
+          <div class="ch-money"><b>$575</b><small>$19.17 / 包</small></div>
+        </div>
+
+        <div class="ch-row" style="--ch:var(--ch-momo)">
+          <span class="ch-thumb">MOMO</span>
+          <div>
+            <div class="ch-name">
+              <strong>momo 購物網</strong>
+              <span class="ch-badge">超商取貨</span>
+            </div>
+            <p class="ch-meta"><span>標價 599</span><span>免運</span><span>回饋 −12</span></p>
+          </div>
+          <div class="ch-money"><b>$587</b><small>$19.57 / 包</small></div>
+        </div>
+
+        <div class="ch-row" style="--ch:var(--ch-ruten)">
+          <span class="ch-thumb">露天</span>
+          <div>
+            <div class="ch-name">
+              <strong>露天市集</strong>
+              <span class="ch-badge">個人賣家 ★4.6</span>
+            </div>
+            <p class="ch-meta"><span>標價 529</span><span>運費 +80</span></p>
+          </div>
+          <div class="ch-money"><b>$609</b><small>$20.30 / 包</small></div>
+        </div>
+
+        <div class="ch-row" style="--ch:var(--ch-yahoo)">
+          <span class="ch-thumb">YAHOO</span>
+          <div>
+            <div class="ch-name">
+              <strong>Yahoo 購物中心</strong>
+              <span class="ch-badge">品牌旗艦</span>
+            </div>
+            <p class="ch-meta"><span>標價 588</span><span>運費 +60</span><span>回饋 −30</span></p>
+          </div>
+          <div class="ch-money"><b>$618</b><small>$20.60 / 包</small></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="head">
+    <div>
+      <h3>資料摘要</h3>
+      <p>目前資料量、對應狀態與待處理項目。</p>
+    </div>
+  </div>
+
+  <div class="strip">
+    <div><small>已建立商品</small><strong class="num">128</strong><em>含 14 筆未分類</em></div>
+    <div><small>已完成通路對應</small><strong class="num">86</strong><em>對應率 67.2%</em></div>
+    <div class="mk-blue"><small>賣場較便宜</small><strong class="num">51</strong><em>建議 Costco 購入</em></div>
+    <div class="mk-green"><small>電商較便宜</small><strong class="num">35</strong><em>建議線上購入</em></div>
+  </div>
+
+  <div class="head">
+    <div>
+      <h3>商品列表</h3>
+      <p>依價差率排序。灰色代表觀測資料已超過 30 天。</p>
+    </div>
+    <button class="btn" data-go="analysis">查看全部</button>
+  </div>
+
+  <div class="cols">
+    <div class="panel">
+      <div class="panel-body" style="padding:0;overflow-x:auto">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th scope="col">商品</th>
+              <th scope="col" class="num col-sm">Costco 賣場</th>
+              <th scope="col" class="num col-sm">最低電商</th>
+              <th scope="col" class="num">價差率</th>
+              <th scope="col">建議</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="name">特級初榨橄欖油 2L<small>9000001 · 蝦皮</small></td>
+              <td class="num mono col-sm">649</td>
+              <td class="num mono col-sm">899</td>
+              <td class="num mono win">−27.8%</td>
+              <td><span class="pill costco">賣場</span></td>
+            </tr>
+            <tr>
+              <td class="name">三層抽取衛生紙 30 入<small>9000027 · 蝦皮</small></td>
+              <td class="num mono col-sm">459</td>
+              <td class="num mono col-sm">533</td>
+              <td class="num mono win">−13.9%</td>
+              <td><span class="pill costco">賣場</span></td>
+            </tr>
+            <tr>
+              <td class="name">洗碗機洗劑 115 顆<small>9000045 · momo</small></td>
+              <td class="num mono col-sm">899</td>
+              <td class="num mono col-sm">869</td>
+              <td class="num mono lose">+3.4%</td>
+              <td><span class="pill hold">差距不大</span></td>
+            </tr>
+            <tr>
+              <td class="name">綜合堅果 1.13kg<small>9000014 · PChome</small></td>
+              <td class="num mono col-sm">749</td>
+              <td class="num mono col-sm">712</td>
+              <td class="num mono lose">+5.2%</td>
+              <td><span class="pill online">電商</span></td>
+            </tr>
+            <tr>
+              <td class="name">哥倫比亞咖啡豆 907g<small>9000052 · —</small></td>
+              <td class="num mono col-sm">729</td>
+              <td class="num mono col-sm">—</td>
+              <td class="num mono">—</td>
+              <td><span class="pill stale">資料過期</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h4>資料完整度</h4>
+        <span>示範數值</span>
+      </div>
+      <div class="panel-body">
+        <div class="bar-row">
+          <div class="bar-top"><span>已完成通路對應</span><b class="num">67.2%</b></div>
+          <div class="bar"><i style="width:67.2%"></i></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-top"><span>單位換算已正規化</span><b class="num">42.9%</b></div>
+          <div class="bar"><i class="warn" style="width:42.9%"></i></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-top"><span>7 天內新鮮報價</span><b class="num">88.3%</b></div>
+          <div class="bar"><i class="ok" style="width:88.3%"></i></div>
+        </div>
+        <p class="note">電商報價變動頻繁，超過 7 天的觀測建議重新抓取。實際更新頻率與有效期請依正式規格設定。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 價格輸入 ══════════════ -->
+<section class="page" id="page-input">
+  <div class="head">
+    <div>
+      <h3>價格輸入</h3>
+      <p>三種來源各自獨立記錄。賣場價與線上價是兩筆不同觀測，不會互相覆蓋。</p>
+    </div>
+  </div>
+
+  <div class="seg" role="group" aria-label="價格來源">
+    <button type="button" aria-pressed="true" data-src="ocr">
+      <svg width="17" height="17" aria-hidden="true"><use href="#i-camera"></use></svg>拍價格牌
+    </button>
+    <button type="button" aria-pressed="false" data-src="costco">
+      <svg width="17" height="17" aria-hidden="true"><use href="#i-link"></use></svg>Costco 線上
+    </button>
+    <button type="button" aria-pressed="false" data-src="ec">
+      <svg width="17" height="17" aria-hidden="true"><use href="#i-cart"></use></svg>電商通路
+    </button>
+  </div>
+
+  <div class="capture">
+    <div class="capture-icon">
+      <svg width="32" height="32" aria-hidden="true"><use href="#i-camera" id="capIcon"></use></svg>
+    </div>
+    <h3 id="capTitle">拍一張賣場價格牌</h3>
+    <p id="capDesc">支援貨架標籤與降價黃標。辨識完成後所有欄位都可以手動修正，確認前不會建立觀測紀錄。</p>
+
+    <div class="url-row" id="urlRow" hidden>
+      <label class="sr" for="f-url">商品網址</label>
+      <input id="f-url" type="url" inputmode="url" placeholder="貼上商品頁網址">
+    </div>
+
+    <button class="btn primary" id="run" style="margin-top:14px">開始辨識</button>
+
+    <div class="result panel" id="result">
+      <div class="panel-head">
+        <h4>辨識結果</h4>
+        <span class="pill hold">待確認</span>
+      </div>
+      <div class="panel-body">
+        <div class="fields">
+          <div class="f">
+            <label for="f-src">價格來源</label>
+            <select id="f-src">
+              <option>Costco 賣場</option>
+              <option>Costco 線上購物</option>
+              <option>蝦皮購物</option>
+              <option>momo 購物網</option>
+              <option>PChome 24h</option>
+              <option>Yahoo 購物中心</option>
+              <option>露天市集</option>
+            </select>
+          </div>
+          <div class="f">
+            <label for="f-item">商品號碼</label>
+            <input id="f-item" class="mono" inputmode="numeric" placeholder="7 位數" value="9000027">
+            <span class="f-hint">信心度 0.98</span>
+          </div>
+          <div class="f wide">
+            <label for="f-name">商品名稱</label>
+            <input id="f-name" placeholder="商品名稱" value="科克蘭 三層抽取衛生紙 30 入">
+          </div>
+          <div class="f">
+            <label for="f-price">標價</label>
+            <input id="f-price" class="mono" inputmode="decimal" value="459">
+          </div>
+          <div class="f">
+            <label for="f-orig">原價</label>
+            <input id="f-orig" class="mono" inputmode="decimal" placeholder="無折扣時留空">
+          </div>
+          <div class="f">
+            <label for="f-ship">運費</label>
+            <input id="f-ship" class="mono" inputmode="decimal" value="0">
+            <span class="f-hint">免運門檻另計</span>
+          </div>
+          <div class="f">
+            <label for="f-back">回饋 / 購物金</label>
+            <input id="f-back" class="mono" inputmode="decimal" value="0">
+          </div>
+          <div class="f">
+            <label for="f-qty">包裝數量</label>
+            <input id="f-qty" class="mono" value="30">
+            <span class="f-hint">單位價正規化的關鍵欄位</span>
+          </div>
+          <div class="f">
+            <label for="f-unit">計價單位</label>
+            <select id="f-unit">
+              <option>包</option><option>入</option><option>公克</option>
+              <option>毫升</option><option>片</option><option>顆</option>
+            </select>
+          </div>
+          <div class="f wide">
+            <label for="f-at">觀測時間</label>
+            <input id="f-at" class="mono" value="2026-07-22 09:14">
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn">捨棄</button>
+          <button class="btn blue" data-go="analysis">確認並比價</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 分析詳情 ══════════════ -->
+<section class="page" id="page-analysis">
+  <div class="head">
+    <div>
+      <h3>分析詳情</h3>
+      <p>實付價明細、單位價比較與資料狀態。</p>
+    </div>
+    <span class="pill costco">賣場最便宜</span>
+  </div>
+
+  <div class="analysis">
+    <div>
+      <div class="receipt checked">
+        <div class="receipt-top">
+          <strong>實付價明細</strong>
+          <span>ITEM 9000027 · 蝦皮購物 · 示範資料</span>
+        </div>
+
+        <p class="r-sec">買進成本</p>
+        <div class="r-row"><span>商品標價</span><b>NT$549</b></div>
+        <div class="r-row"><span>運費（滿 490 免運）</span><b>NT$0</b></div>
+        <div class="r-row"><span>蝦皮幣回饋 3%</span><b class="neg">−NT$16</b></div>
+        <div class="r-row sub"><span>實付價</span><b>NT$533</b></div>
+        <div class="r-row"><span>包裝數量</span><b>30 包</b></div>
+        <div class="r-row"><span>單位實付價</span><b>NT$17.77 / 包</b></div>
+
+        <p class="r-sec">對照 · Costco 賣場</p>
+        <div class="r-row"><span>賣場標價</span><b>NT$459</b></div>
+        <div class="r-row"><span>單位價</span><b>NT$15.30 / 包</b></div>
+
+        <div class="r-row total"><span>價差</span><b>−74</b></div>
+        <div class="r-row"><span>價差率</span><b>−13.9%</b></div>
+        <div class="r-row"><span>單位價差</span><b>−NT$2.47 / 包</b></div>
+
+        <div class="r-future" aria-hidden="true">
+          <p class="r-sec"><span>賣出試算</span><em>Phase 2</em></p>
+          <div class="r-row"><span>上架售價</span><b>—</b></div>
+          <div class="r-row"><span>平台成交手續費</span><b>—</b></div>
+          <div class="r-row"><span>金流手續費</span><b>—</b></div>
+          <div class="r-row"><span>運費補貼 / 包材</span><b>—</b></div>
+          <div class="r-row sub"><span>淨收入</span><b>—</b></div>
+          <div class="r-row"><span>毛利率</span><b>—</b></div>
+        </div>
+
+        <p class="receipt-foot">數值為示範用途 · 實際計算以正式規格為準</p>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+        <span class="verdict costco"><small>建議</small><strong>賣場買</strong></span>
+        <button class="btn blue" data-go="track" style="flex:1;min-width:150px">加入追蹤</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-head">
+          <h4>單位價比較</h4>
+          <span>正規化後 · 每包</span>
+        </div>
+        <div class="panel-body">
+          <div class="ch-list">
+            <div class="ch-row best" style="--ch:var(--blue)">
+              <span class="ch-rank">最低</span>
+              <span class="ch-thumb">COSTCO<br>賣場</span>
+              <div><div class="ch-name"><strong>Costco 內湖店</strong></div><p class="ch-meta"><span>459 / 30 包</span></p></div>
+              <div class="ch-money"><b>$15.30</b><small>每包</small></div>
+            </div>
+            <div class="ch-row" style="--ch:var(--blue)">
+              <span class="ch-thumb">COSTCO<br>線上</span>
+              <div><div class="ch-name"><strong>Costco 線上購物</strong></div><p class="ch-meta"><span>519 / 30 包 · 免運</span></p></div>
+              <div class="ch-money"><b>$17.30</b><small>每包</small></div>
+            </div>
+            <div class="ch-row" style="--ch:var(--ch-shopee)">
+              <span class="ch-thumb">蝦皮</span>
+              <div><div class="ch-name"><strong>蝦皮購物</strong></div><p class="ch-meta"><span>533 / 30 包 · 含回饋</span></p></div>
+              <div class="ch-money"><b>$17.77</b><small>每包</small></div>
+            </div>
+            <div class="ch-row" style="--ch:var(--ch-ruten)">
+              <span class="ch-thumb">露天</span>
+              <div><div class="ch-name"><strong>露天市集</strong></div><p class="ch-meta"><span>609 / 24 包 · 規格不同</span></p></div>
+              <div class="ch-money"><b>$25.38</b><small>每包</small></div>
+            </div>
+          </div>
+          <p class="note">露天該賣場為 24 包裝，與 Costco 的 30 包不同。單位價正規化後才具可比性 —— 這是本工具最容易出錯的環節。</p>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <div class="panel-head">
+          <h4>資料狀態</h4>
+          <span>來源與新鮮度</span>
+        </div>
+        <div class="panel-body" style="padding:0">
+          <table class="tbl">
+            <tbody>
+              <tr><td>Costco 賣場觀測</td><td class="num mono">2 天前 · OCR</td></tr>
+              <tr><td>Costco 線上報價</td><td class="num mono">今日 · 網頁擷取</td></tr>
+              <tr><td>電商報價（5 通路）</td><td class="num mono">今日 · 網頁擷取</td></tr>
+              <tr><td>單位換算</td><td class="num mono">已正規化 · 每包</td></tr>
+              <tr><td>品項對應信心度</td><td class="num mono">0.71 · 建議人工複核</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 追蹤 ══════════════ -->
+<section class="page" id="page-track">
+  <div class="head">
+    <div>
+      <h3>追蹤紀錄</h3>
+      <p>持續觀察中的品項，價差反轉時提示重新評估。</p>
+    </div>
+    <button class="btn primary"><svg width="15" height="15" aria-hidden="true"><use href="#i-plus"></use></svg>新增紀錄</button>
+  </div>
+
+  <div class="track">
+    <article class="panel track-card">
+      <span class="pill costco">賣場</span>
+      <h4>三層抽取衛生紙 30 入</h4>
+      <p>賣場長期低於所有電商，價差穩定。列為固定採買清單。</p>
+      <div class="track-stats">
+        <div><small>價差</small><b class="num">−74</b></div>
+        <div><small>價差率</small><b class="num">13.9%</b></div>
+        <div><small>觀測次數</small><b class="num">12</b></div>
+        <div><small>最後更新</small><b class="num">2 天</b></div>
+      </div>
+    </article>
+
+    <article class="panel track-card">
+      <span class="pill online">電商</span>
+      <h4>綜合堅果 1.13kg</h4>
+      <p>PChome 檔期價低於賣場，但活動結束後通常回升，需觀察週期。</p>
+      <div class="track-stats">
+        <div><small>價差</small><b class="num">+37</b></div>
+        <div><small>價差率</small><b class="num">5.2%</b></div>
+        <div><small>觀測次數</small><b class="num">8</b></div>
+        <div><small>最後更新</small><b class="num">今日</b></div>
+      </div>
+    </article>
+
+    <article class="panel track-card">
+      <span class="pill hold">差距不大</span>
+      <h4>洗碗機洗劑 115 顆</h4>
+      <p>價差在 5% 以內，考量來回車程與時間成本後不具意義。</p>
+      <div class="track-stats">
+        <div><small>價差</small><b class="num">+30</b></div>
+        <div><small>價差率</small><b class="num">3.4%</b></div>
+        <div><small>觀測次數</small><b class="num">5</b></div>
+        <div><small>最後更新</small><b class="num">4 天</b></div>
+      </div>
+    </article>
+  </div>
+
+  <p class="note">此頁僅提供切版。實際資料結構、狀態名稱、計算結果與商業流程請依 COSTCO_ARBITRAGE_MVP_SPEC 實作。</p>
+</section>
+
+</main>
+
+<nav class="dock" aria-label="主要功能">
+  <button data-page="dash" aria-current="page"><svg width="20" height="20" aria-hidden="true"><use href="#i-grid"></use></svg>總覽</button>
+  <button data-page="input"><svg width="20" height="20" aria-hidden="true"><use href="#i-tag"></use></svg>輸入</button>
+  <button data-page="analysis"><svg width="20" height="20" aria-hidden="true"><use href="#i-scale"></use></svg>分析</button>
+  <button data-page="track"><svg width="20" height="20" aria-hidden="true"><use href="#i-check"></use></svg>追蹤</button>
+</nav>
+
+<script>
+(function () {
+  'use strict';
+
+  var root = document.documentElement;
+  var KEY = 'costco-arbitrage-theme';
+
+  /* ---- 主題 ---------------------------------------------------- */
+  function read() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+  function write(v) { try { localStorage.setItem(KEY, v); } catch (e) { /* 無痕模式 */ } }
+
+  var saved = read();
+  if (saved === 'dark' || saved === 'light') {
+    root.dataset.theme = saved;
+  } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    root.dataset.theme = 'dark';
+  }
+
+  var themeBtn = document.getElementById('theme');
+  var themeIcon = document.getElementById('themeIcon');
+
+  function paint() {
+    var dark = root.dataset.theme === 'dark';
+    if (themeIcon) themeIcon.setAttribute('href', dark ? '#i-sun' : '#i-moon');
+    if (themeBtn) themeBtn.setAttribute('aria-label', dark ? '切換至淺色模式' : '切換至深色模式');
+  }
+  paint();
+
+  if (themeBtn) {
+    themeBtn.addEventListener('click', function () {
+      root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      write(root.dataset.theme);
+      paint();
+    });
+  }
+
+  /* ---- 分頁 ---------------------------------------------------- */
+  var pages = document.querySelectorAll('.page');
+  var navBtns = document.querySelectorAll('[data-page]');
+
+  function go(id) {
+    var target = document.getElementById('page-' + id);
+    if (!target) return;
+    pages.forEach(function (p) { p.classList.toggle('on', p === target); });
+    navBtns.forEach(function (b) {
+      if (b.dataset.page === id) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+  }
+
+  navBtns.forEach(function (b) { b.addEventListener('click', function () { go(b.dataset.page); }); });
+  document.querySelectorAll('[data-go]').forEach(function (b) {
+    b.addEventListener('click', function () { go(b.dataset.go); });
+  });
+
+  /* ---- 價格來源切換 -------------------------------------------- */
+  var COPY = {
+    ocr: {
+      icon: '#i-camera',
+      title: '拍一張賣場價格牌',
+      desc: '支援貨架標籤與降價黃標。辨識完成後所有欄位都可以手動修正，確認前不會建立觀測紀錄。',
+      btn: '開始辨識',
+      url: false
+    },
+    costco: {
+      icon: '#i-link',
+      title: '貼上 Costco 線上商品網址',
+      desc: '線上價與賣場價會分開記錄。線上通常含運費規則與會員限定條件，兩者不會互相覆蓋。',
+      btn: '擷取價格',
+      url: true
+    },
+    ec: {
+      icon: '#i-cart',
+      title: '貼上電商商品網址',
+      desc: '支援蝦皮、momo、PChome、Yahoo、露天。系統會一併讀取運費、免運門檻與回饋，換算成實付價。',
+      btn: '擷取價格',
+      url: true
+    }
+  };
+
+  var segBtns = document.querySelectorAll('.seg [data-src]');
+  var capIcon = document.getElementById('capIcon');
+  var capTitle = document.getElementById('capTitle');
+  var capDesc = document.getElementById('capDesc');
+  var urlRow = document.getElementById('urlRow');
+  var runBtn = document.getElementById('run');
+  var result = document.getElementById('result');
+
+  segBtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var c = COPY[b.dataset.src];
+      if (!c) return;
+      segBtns.forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      if (capIcon) capIcon.setAttribute('href', c.icon);
+      if (capTitle) capTitle.textContent = c.title;
+      if (capDesc) capDesc.textContent = c.desc;
+      if (urlRow) urlRow.hidden = !c.url;
+      if (runBtn) runBtn.textContent = c.btn;
+      if (result) result.classList.remove('on');
+    });
+  });
+
+  if (runBtn && result) {
+    runBtn.addEventListener('click', function () {
+      result.classList.add('on');
+      var first = result.querySelector('select, input');
+      if (first) first.focus({ preventScroll: true });
+      result.scrollIntoView({ block: 'nearest' });
+    });
+  }
+})();
+</script>
+</body>
+</html>

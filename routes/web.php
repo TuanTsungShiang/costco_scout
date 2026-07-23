@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CanonicalProductController;
 use App\Http\Controllers\OcrController;
+use App\Http\Controllers\PriceScrapeController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PriceInputController;
 use App\Http\Controllers\PriceObservationController;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
 Route::post('/api/ocr/recognize', [OcrController::class, 'recognize'])->name('ocr.recognize');
+Route::post('/api/price/scrape', [PriceScrapeController::class, 'scrape'])->name('price.scrape');
 
 Route::get('/price-input', [PriceInputController::class, 'index'])->name('price-input');
 Route::post('/price-input', [PriceInputController::class, 'store'])->name('price-input.store');

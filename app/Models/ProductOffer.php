@@ -34,11 +34,19 @@ class ProductOffer extends Model
         return $this->hasMany(PriceObservation::class);
     }
 
-    public function latestValidObservation(): ?PriceObservation
+    /**
+     * 取得此 offer 最新的 VALID 觀測。
+     * 傳入 $storeId 時只比對同一 store（賣場 vs 線上 是不同 store，
+     * 各自獨立 supersede，不會互相覆蓋）。傳 false 代表不分 store。
+     */
+    public function latestValidObservation(int|null|false $storeId = false): ?PriceObservation
     {
-        return $this->priceObservations()
-            ->where('status', 'VALID')
-            ->latest('created_at')
-            ->first();
+        $query = $this->priceObservations()->where('status', 'VALID');
+
+        if ($storeId !== false) {
+            $query->where('store_id', $storeId);
+        }
+
+        return $query->latest('created_at')->first();
     }
 }

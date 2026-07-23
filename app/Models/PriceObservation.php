@@ -13,15 +13,16 @@ class PriceObservation extends Model
     const UPDATED_AT = null;
 
     protected $fillable = [
-        'product_offer_id', 'price_tag_capture_id',
+        'product_offer_id', 'store_id', 'raw_capture_id',
         'amount_minor', 'currency_code', 'fx_rate_to_base',
-        'source_type', 'status', 'notes',
-        'invalidated_at', 'superseded_by_id',
+        'observed_at', 'source_type', 'status', 'notes',
+        'invalidated_at', 'invalidated_reason', 'superseded_by_id',
     ];
 
     protected $casts = [
         'amount_minor'    => 'integer',
         'fx_rate_to_base' => 'decimal:10',
+        'observed_at'     => 'date',
         'source_type'     => ObservationSourceType::class,
         'status'          => ObservationStatus::class,
         'invalidated_at'  => 'datetime',

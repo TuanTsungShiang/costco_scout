@@ -79,14 +79,26 @@
     <svg width="32" height="32" aria-hidden="true" id="manualCapIcon"><use href="#i-link"></use></svg>
   </div>
   <h3 id="manualCapTitle">記錄 Costco 線上商品價格</h3>
-  <p id="manualCapDesc">線上價與賣場價會分開記錄。請手動輸入線上標價。</p>
+  <p id="manualCapDesc">線上價與賣場價會分開記錄。兩者是不同觀測，不會互相覆蓋。</p>
+
+  {{-- 商品網址（選填，會存到通路報價供日後追蹤） --}}
+  <div class="url-row" id="urlRow" style="margin-top:16px">
+    <label class="sr" for="manualUrl">商品網址</label>
+    <input id="manualUrl" type="url" inputmode="url"
+           placeholder="貼上商品頁網址（選填，例：costco.com.tw/...）">
+  </div>
+
   <button class="btn primary" id="manualRunBtn" type="button" style="margin-top:14px">開始記錄</button>
+
+  {{-- 擷取狀態/錯誤訊息 --}}
+  <div id="scrapeMsg" style="display:none;max-width:640px;margin:12px auto 0;padding:9px 13px;font-size:.84rem;border-radius:var(--r);text-align:left"></div>
 </div>
 
 {{-- ── 確認表單 ── --}}
 <div class="result panel" id="result"
      data-has-old="{{ old('amount_minor') ? '1' : '' }}"
      data-ocr-url="{{ route('ocr.recognize') }}"
+     data-scrape-url="{{ route('price.scrape') }}"
      data-csrf="{{ csrf_token() }}"
      style="display:none;margin-top:var(--gap)">
   <div class="panel-head">
@@ -97,6 +109,7 @@
     <form method="POST" action="{{ route('price-input.store') }}" id="priceForm">
       @csrf
       <input type="hidden" name="source_mode" id="source_mode" value="ocr">
+      <input type="hidden" name="source_url" id="source_url" value="">
 
       <div class="fields">
         <div class="f">
@@ -200,6 +213,11 @@ var priceField   = document.getElementById('f-price');
 var ocrNameField = document.getElementById('ocrNameField');
 var ocrNameDisp  = document.getElementById('ocrNameDisplay');
 var manualRunBtn = document.getElementById('manualRunBtn');
+var manualUrl    = document.getElementById('manualUrl');
+var sourceUrlInp = document.getElementById('source_url');
+var retailerSel  = document.getElementById('f-retailer');
+var scrapeMsg    = document.getElementById('scrapeMsg');
+var productSel   = document.getElementById('f-product');
 
 /* ── Mode copy ── */
 var COPY = {
@@ -219,6 +237,7 @@ segBtns.forEach(function(b){
     if(mode === 'ocr'){
       ocrPanel.style.display = '';
       manualPanel.style.display = 'none';
+      if(sourceUrlInp) sourceUrlInp.value = '';
     } else {
       ocrPanel.style.display = 'none';
       manualPanel.style.display = '';
@@ -230,6 +249,19 @@ segBtns.forEach(function(b){
   });
 });
 
+/* 依模式自動選通路：costco → Costco；ec 不強制（有多家電商） */
+function autoSelectRetailer(mode){
+  if(!retailerSel) return;
+  if(mode === 'costco'){
+    for(var i = 0; i < retailerSel.options.length; i++){
+      if(/costco|好市多/i.test(retailerSel.options[i].textContent)){
+        retailerSel.selectedIndex = i;
+        return;
+      }
+    }
+  }
+}
+
 /* ── Camera / Upload ── */
 if(cameraBtn) cameraBtn.addEventListener('click', function(){
   imageInput.setAttribute('capture','environment');
@@ -240,7 +272,97 @@ if(uploadBtn) uploadBtn.addEventListener('click', function(){
   imageInput.click();
 });
 if(retakeBtn)    retakeBtn.addEventListener('click', function(){ resetPreview(); hideResult(); });
-if(manualRunBtn) manualRunBtn.addEventListener('click', showResult);
+if(manualRunBtn) manualRunBtn.addEventListener('click', function(){
+  var url = manualUrl ? manualUrl.value.trim() : '';
+  if(sourceUrlInp) sourceUrlInp.value = url;
+  autoSelectRetailer(srcInput.value);
+
+  // 有網址 → 先擷取價格；沒網址 → 直接手動記錄
+  if(url){
+    scrapePrice(url);
+  } else {
+    hideScrapeMsg();
+    showResult();
+  }
+});
+
+/* 呼叫後端擷取商品頁價格 */
+function scrapePrice(url){
+  var SCRAPE_URL = result.dataset.scrapeUrl;
+  var CSRF_TOK   = result.dataset.csrf;
+
+  manualRunBtn.disabled = true;
+  manualRunBtn.textContent = '擷取中…';
+  setScrapeMsg('info', '正在讀取商品頁價格…');
+
+  fetch(SCRAPE_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': CSRF_TOK,
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({ url: url }),
+  })
+  .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+  .then(function(res){
+    manualRunBtn.disabled = false;
+    manualRunBtn.textContent = '開始記錄';
+    var d = res.data;
+
+    if(res.ok && d.price_twd){
+      // 成功：填價格、顯示名稱參考
+      priceField.value = d.price_twd;
+      priceField.style.outline = '3px solid var(--green)';
+      setTimeout(function(){ priceField.style.outline = ''; }, 2500);
+
+      var summary = ['NT$' + d.price_twd];
+      if(d.item_number) summary.unshift('#' + d.item_number);
+      if(d.name)        summary.push(d.name);
+      setScrapeMsg('ok', '✓ 擷取成功：' + summary.join('　'));
+
+      if(d.name || d.item_number){
+        ocrNameDisp.value = [d.item_number ? '#'+d.item_number : null, d.name].filter(Boolean).join('  ');
+        ocrNameField.style.display = '';
+      }
+      // 帶入「建立新商品」連結（名稱、品號、線上網址）
+      updateCreateLink(d);
+    } else {
+      // 失敗：仍展開表單讓使用者手動輸入
+      var msg = (d && d.error) ? d.error : '無法擷取價格，請手動輸入。';
+      setScrapeMsg('warn', msg);
+      if(d && d.name){
+        ocrNameDisp.value = [d.item_number ? '#'+d.item_number : null, d.name].filter(Boolean).join('  ');
+        ocrNameField.style.display = '';
+      }
+      // 即使沒抓到價格，名稱/品號/網址仍帶入建立商品連結
+      if(d) updateCreateLink({ name: d.name, item_number: d.item_number, source_url: sourceUrlInp ? sourceUrlInp.value : '' });
+    }
+    showResult();
+  })
+  .catch(function(err){
+    manualRunBtn.disabled = false;
+    manualRunBtn.textContent = '開始記錄';
+    setScrapeMsg('warn', '擷取失敗：' + err.message + '（請手動輸入價格）');
+    showResult();
+  });
+}
+
+function setScrapeMsg(type, text){
+  if(!scrapeMsg) return;
+  var styles = {
+    info: { bg: 'var(--panel)',    fg: 'var(--panel-muted)', bd: 'var(--rule-soft)' },
+    ok:   { bg: 'color-mix(in srgb,var(--green) 14%,transparent)', fg: 'var(--green)', bd: 'var(--green)' },
+    warn: { bg: 'color-mix(in srgb,var(--red) 12%,transparent)',   fg: 'var(--red)',   bd: 'var(--red)' }
+  };
+  var s = styles[type] || styles.info;
+  scrapeMsg.textContent = text;
+  scrapeMsg.style.background  = s.bg;
+  scrapeMsg.style.color       = s.fg;
+  scrapeMsg.style.borderLeft  = '3px solid ' + s.bd;
+  scrapeMsg.style.display     = '';
+}
+function hideScrapeMsg(){ if(scrapeMsg) scrapeMsg.style.display = 'none'; }
 if(discardBtn)   discardBtn.addEventListener('click', function(){ hideResult(); resetPreview(); });
 
 /* ── Image selected → Claude Vision pipeline ── */
@@ -360,7 +482,13 @@ function updateCreateLink(d){
   p.set('return_to', 'price-input');
   if(d.brand)                 p.set('brand', d.brand);
   if(d.name)                  p.set('name',  d.name);
-  if(d.item_number)           p.set('notes', '品號 #' + d.item_number);
+
+  // 備註同時帶品號與線上網址
+  var notes = [];
+  if(d.item_number) notes.push('品號 #' + d.item_number);
+  if(d.source_url)  notes.push('線上網址：' + d.source_url);
+  if(notes.length)  p.set('notes', notes.join('\n'));
+
   if(d.comparison_mode)       p.set('comparison_mode',      d.comparison_mode);
   if(d.package_count)         p.set('package_count',        d.package_count);
   if(d.content_per_package)   p.set('content_per_package',  d.content_per_package);
